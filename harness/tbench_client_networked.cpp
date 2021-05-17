@@ -22,9 +22,13 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
+#include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
+
+#include <boost/algorithm/string.hpp>
 
 #ifdef CLOSED_LOOP
 static bool _send(NetworkedClient* client) {
@@ -114,6 +118,41 @@ void* recv(void* c) {
     }
 }
 
+std::string workloadDec;
+void* wrk(void* c) {
+    assert(!workloadDec.empty());
+    NetworkedClient* client = reinterpret_cast<NetworkedClient*>(c);
+
+    std::ifstream fd(workloadDec, std::ifstream::in);
+    std::string line;
+    while (std::getline(fd, line)) {
+        if (fd.fail()) {
+            std::cerr << "Reading workload description file error\n";
+            client->dumpStats();
+            syscall(SYS_exit_group, 0);
+            return nullptr;
+        }
+
+        // Ignore comments;
+        if (line[0] == '#') continue;
+
+        // Parse workload in format QPS, TIME_IN_SEC
+        std::vector<std::string> strs;
+        boost::split(strs, line, boost::is_any_of(","));
+        assert(strs.size() == 2);
+        const int qps = std::stoi(strs[0]);
+        const int time = std::stoi(strs[1]);
+        std::cout << "qps=" << qps << ", time=" << time << std::endl;
+        client->updateQps(qps);
+        sleep(time);
+    }
+
+    std::cout << "Finish all workload in description file, exit\n";
+    client->dumpStats();
+    syscall(SYS_exit_group, 0);
+    return nullptr;
+}
+
 int sleepInSec;
 void* dump(void* c) {
     NetworkedClient* client = reinterpret_cast<NetworkedClient*>(c);
@@ -129,6 +168,7 @@ int main(int argc, char* argv[]) {
     std::string server = getOpt<std::string>("TBENCH_SERVER", "");
     int serverport = getOpt<int>("TBENCH_SERVER_PORT", 8080);
     sleepInSec = getOpt<int>("TBENCH_MEASURE_SLEEP_SEC", 5);
+    workloadDec = getOpt<std::string>("TBENCH_WORKLOAD_DEC", "");
 
     NetworkedClient* client = new NetworkedClient(nthreads, server, serverport);
 
@@ -138,6 +178,13 @@ int main(int argc, char* argv[]) {
         int status = pthread_create(&clients[t], nullptr, closed_loop,
                 reinterpret_cast<void*>(client));
         assert(status == 0);
+    }
+
+    // Thread to change workload according to workloadDec file.
+    pthread_t wrker;
+    if (!workloadDec.empty()) {
+        assert(pthread_create(&wrker, nullptr, wrk,
+                              reinterpret_cast<void*>(client)) == 0);
     }
 
     // Thread to periodically dump stats.
@@ -151,6 +198,7 @@ int main(int argc, char* argv[]) {
         assert(status == 0);
     }
     assert(pthread_join(dumper, nullptr) == 0);
+    assert(pthread_join(wrker, nullptr) == 0);
 #else
     std::vector<pthread_t> senders(nthreads);
     std::vector<pthread_t> receivers(nthreads);
@@ -171,7 +219,7 @@ int main(int argc, char* argv[]) {
         int status;
         status = pthread_join(senders[t], nullptr);
         assert(status == 0);
-        status = pthread_join(receiver[t], nullptr);
+        status = pthread_join(receivers[t], nullptr);
         assert(status == 0);
     }
 #endif

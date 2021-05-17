@@ -28,6 +28,9 @@ class Dist {
         virtual uint64_t nextArrivalNs(uint64_t) {
             assert(false);
         }
+        virtual void updateInterval(uint64_t) {
+            assert(false);
+        }
 };
 
 class ClosedDist : public Dist {
@@ -50,6 +53,10 @@ class ClosedDist : public Dist {
                 return cur;
             }
             return curNs;
+        }
+
+        void updateInterval(uint64_t d) {
+            interval = d;
         }
 };
 

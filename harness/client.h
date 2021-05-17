@@ -61,7 +61,7 @@ class Client {
         void startRoi();
         void dumpStats();
         void dumpAndClearStats();
-
+        void updateQps(int);
 };
 
 class NetworkedClient : public Client {

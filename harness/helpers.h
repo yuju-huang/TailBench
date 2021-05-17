@@ -29,7 +29,9 @@ template<typename T>
 static T getOpt(const char* name, T defVal) {
     const char* opt = getenv(name);
 
-    std::cout << name << " = " << opt << std::endl;
+    if (opt)
+        std::cout << name << " = " << opt << std::endl;
+
     if (!opt) return defVal;
     std::stringstream ss(opt);
     if (ss.str().length() == 0) return defVal;

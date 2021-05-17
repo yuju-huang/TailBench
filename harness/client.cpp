@@ -59,6 +59,23 @@ Client::Client(int _nthreads) {
     tBenchClientInit();
 }
 
+void Client::updateQps(int qps) {
+    assert(qps > 0);
+
+    // Make sure dist is initialized.
+    while (true) {
+        pthread_mutex_lock(&lock);
+        if (dist != nullptr) {
+            pthread_mutex_unlock(&lock);
+            break;
+        }
+        pthread_mutex_unlock(&lock);
+        pthread_yield();
+    }
+
+    dist->updateInterval( ((double)1 / qps) * 1e+9 );
+}
+
 Request* Client::startReq() {
     if (status == INIT) {
         pthread_barrier_wait(&barrier); // Wait for all threads to start up
