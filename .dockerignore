@@ -1,0 +1,7 @@
+./tailbench.inputs/*
+./masstree/*
+./moses/*
+./shore/*
+./silo/*
+./specjbb/*
+./sphinx/*
