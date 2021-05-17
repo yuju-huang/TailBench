@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <unistd.h>
 
+#include "helpers.h"
 #include "server.h"
 #include "tbench_server.h"
 
@@ -44,8 +45,8 @@ void Server::_run() {
     tBenchServerThreadStart();
 
     while (numReqsProcessed < numReqsToProcess) {
-       processRequest();
-       ++numReqsProcessed;
+        processRequest();
+        ++numReqsProcessed;
     }
 }
 
@@ -55,6 +56,9 @@ void Server::processRequest() {
     void* termPtr;
 
     size_t len = tBenchRecvReq(&termPtr);
+    std::cout << "server thread#" << pthread_self() << " get request at "
+              << getCurNs() << std::endl;
+
     memcpy(reinterpret_cast<void*>(term), termPtr, len);
     term[len] = '\0';
 
@@ -78,7 +82,11 @@ void Server::processRequest() {
         if (++doccount == MAX_DOC_COUNT) break;
     }
 
+    std::cout << "server thread#" << pthread_self() << " finish Xapian Query at "
+              << getCurNs() << std::endl;
     tBenchSendResp(reinterpret_cast<void*>(res), resLen);
+    std::cout << "server thread#" << pthread_self() << " send response at "
+              << getCurNs() << std::endl;
 }
 
 void* Server::run(void* v) {

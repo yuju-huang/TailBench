@@ -234,6 +234,8 @@ size_t NetworkedServer::recvReq(int id, void** data) {
 
 void NetworkedServer::sendResp(int id, const void* data, size_t len) {
     pthread_mutex_lock(&sendLock);
+    std::cout << "server thread#" << pthread_self() << " get lock do send at "
+              << getCurNs() << std::endl;
 
     Response* resp = new Response();
     
@@ -248,7 +250,11 @@ void NetworkedServer::sendResp(int id, const void* data, size_t len) {
 
     int fd = activeFds[id];
     int totalLen = sizeof(Response) - MAX_RESP_BYTES + len;
+    std::cout << "server thread#" << pthread_self() << " start sending at "
+              << getCurNs() << std::endl;
     int sent = sendfull(fd, reinterpret_cast<const char*>(resp), totalLen, 0);
+    std::cout << "server thread#" << pthread_self() << " finish sending at "
+              << getCurNs() << std::endl;
     assert(sent == totalLen);
 
     ++finishedReqs;
@@ -260,6 +266,7 @@ void NetworkedServer::sendResp(int id, const void* data, size_t len) {
             sent = sendfull(fd, reinterpret_cast<const char*>(resp), totalLen, 0);
             assert(sent == totalLen);
         }
+        std::cout << "finish warming up\n";
     } else if (finishedReqs == warmupReqs + maxReqs) { 
         resp->type = FINISH;
         for (int fd : clientFds) {
