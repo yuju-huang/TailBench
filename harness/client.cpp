@@ -67,8 +67,12 @@ Request* Client::startReq() {
 
         if (!dist) {
             uint64_t curNs = getCurNs();
+#ifdef CLOSED_LOOP
+            uint64_t interval = (1/(lambda * 1e+9)) * 1e+9;
+            dist = new ClosedDist(interval, curNs);
+#else
             dist = new ExpDist(lambda, seed, curNs);
-
+#endif
             status = WARMUP;
 
             pthread_barrier_destroy(&barrier);
@@ -87,15 +91,23 @@ Request* Client::startReq() {
     req->len = len;
 
     req->id = startedReqs++;
+
+    uint64_t curNs = getCurNs();
+#ifdef CLOSED_LOOP
+    req->genNs = dist->nextArrivalNs(curNs);
+#else
     req->genNs = dist->nextArrivalNs();
+#endif
     inFlightReqs[req->id] = req;
 
     pthread_mutex_unlock(&lock);
 
-    uint64_t curNs = getCurNs();
-
     if (curNs < req->genNs) {
+#ifdef CLOSED_LOOP
         sleepUntil(std::max(req->genNs, curNs + minSleepNs));
+#else
+        sleepUntil(req->genNs);
+#endif
     }
 
     return req;
@@ -155,6 +167,30 @@ void Client::dumpStats() {
                     sizeof(sjrnTimes[r]));
     }
     out.close();
+}
+
+void Client::dumpAndClearStats() {
+    const int reqs = sjrnTimes.size();
+    std::cout << "# of reqs=" << reqs << std::endl;
+    if (reqs == 0) return;
+#define P(pr) \
+    const int p##pr = (reqs * pr) / 100;
+
+    P(50);
+    P(95);
+    P(99);
+#undef P
+
+    pthread_mutex_lock(&lock);
+    std::sort(sjrnTimes.begin(), sjrnTimes.end());
+    std::cout << "mean latency, " << (double)sjrnTimes[p50] / 1000000
+              << ", p95 latency, " << (double)sjrnTimes[p95] / 1000000
+              << ", p99 latency, " << (double)sjrnTimes[p99] / 1000000 << std::endl;
+
+    queueTimes.clear();
+    svcTimes.clear();
+    sjrnTimes.clear();
+    pthread_mutex_unlock(&lock);
 }
 
 /*******************************************************************************

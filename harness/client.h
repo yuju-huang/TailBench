@@ -41,7 +41,7 @@ class Client {
         uint64_t minSleepNs;
         uint64_t seed;
         double lambda;
-        ExpDist* dist;
+        Dist* dist;
 
         uint64_t startedReqs;
         std::unordered_map<uint64_t, Request*> inFlightReqs;
@@ -60,6 +60,7 @@ class Client {
 
         void startRoi();
         void dumpStats();
+        void dumpAndClearStats();
 
 };
 

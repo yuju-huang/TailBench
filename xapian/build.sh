@@ -5,7 +5,6 @@ if [[ ! -d xapian-core-1.2.13 ]]
 then
     tar -xf xapian-core-1.2.13.tar.gz
     cd xapian-core-1.2.13
-    mkdir install
     ./configure --prefix=$PWD/install
     make -j16
     make install

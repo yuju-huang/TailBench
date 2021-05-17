@@ -1,0 +1,18 @@
+#!/bin/bash
+if [ -z $1 ]; then
+    echo "args1 as NSERVERS"
+    exit 1
+fi
+
+export LD_LIBRARY_PATH=$PWD/xapian-core-1.2.13/install/lib
+DATA_ROOT=$PWD/../tailbench.inputs
+NSERVERS=$1
+WARMUPREQS=1000
+REQUESTS=1000000
+PORT=3366
+#SERVER=127.0.0.1
+SERVER=172.17.0.2
+NCLIENT=1
+
+TBENCH_NCLIENTS=$NCLIENT TBENCH_SERVER=$SERVER TBENCH_SERVER_PORT=$PORT TBENCH_MAXREQS=${REQUESTS} TBENCH_WARMUPREQS=${WARMUPREQS} \
+    ./xapian_networked_server -n ${NSERVERS} -d ${DATA_ROOT}/xapian/wiki -r $((WARMUPREQS + REQUESTS))
