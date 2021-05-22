@@ -5,7 +5,7 @@ TBENCH_PATH = ../harness
 TBENCH_INC = $(TBENCH_PATH)/tbench_client.h $(TBENCH_PATH)/tbench_server.h
 
 TBENCH_SERVER_OBJ = $(TBENCH_PATH)/tbench_server_networked.o
-TBENCH_CLIENT_OBJ = $(TBENCH_PATH)/client.o $(TBENCH_PATH)/tbench_client_networked.o
+TBENCH_CLIENT_OBJ = $(TBENCH_PATH)/client.o $(TBENCH_PATH)/tbench_client_networked.o $(TBENCH_PATH)/msgq.o
 TBENCH_INTEGRATED_OBJ = $(TBENCH_PATH)/client.o $(TBENCH_PATH)/tbench_server_integrated.o
 
 CXX = g++

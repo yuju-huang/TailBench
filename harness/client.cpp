@@ -16,6 +16,7 @@
 
 #include "client.h"
 #include "helpers.h"
+#include "msgq.h"
 #include "tbench_client.h"
 
 #include <assert.h>
@@ -184,6 +185,37 @@ void Client::dumpStats() {
                     sizeof(sjrnTimes[r]));
     }
     out.close();
+}
+
+bool Client::getAndClearStats(lats_t lats) {
+    const int reqs = sjrnTimes.size();
+    std::cout << "# of reqs=" << reqs << std::endl;
+    if (reqs == 0) return false;
+#define P(pr) \
+    const int p##pr = (reqs * pr) / 100;
+
+    P(50);
+    P(95);
+    P(99);
+#undef P
+
+    pthread_mutex_lock(&lock);
+    std::sort(sjrnTimes.begin(), sjrnTimes.end());
+    double p50_lat = (double)sjrnTimes[p50] / 1000000;
+    double p95_lat = (double)sjrnTimes[p95] / 1000000;
+    double p99_lat = (double)sjrnTimes[p99] / 1000000;
+    std::cout << "mean latency, " << p50_lat
+              << ", p95 latency, " << p95_lat
+              << ", p99 latency, " << p99_lat << std::endl;
+    lats[0] = p50_lat;
+    lats[1] = p95_lat;
+    lats[2] = p99_lat;
+
+    queueTimes.clear();
+    svcTimes.clear();
+    sjrnTimes.clear();
+    pthread_mutex_unlock(&lock);
+    return true;
 }
 
 void Client::dumpAndClearStats() {

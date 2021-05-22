@@ -6,9 +6,12 @@ CXXFLAGS = -O3 -g -fPIC -std=c++0x -DCLOSED_LOOP
 COMMON_INCLUDES = dist.h helpers.h msgs.h
 
 default: client.o tbench_server_integrated.o tbench_server_networked.o \
-	tbench_client_networked.o tbench.jar
+	tbench_client_networked.o msgq.o tbench.jar
 
 client.o : client.cpp client.h $(COMMON_INCLUDES)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+msgq.o : msgq.cpp msgq.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 tbench_server_integrated.o : tbench_server_integrated.cpp tbench_server.h \
@@ -20,7 +23,7 @@ tbench_server_networked.o : tbench_server_networked.cpp tbench_server.h \
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 tbench_client_networked.o : tbench_client_networked.cpp tbench_client.h \
-	server.h client.h $(COMMON_INCLUDES)
+	server.h client.h $(COMMON_INCLUDES) msgq.cpp msgq.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 tbench/tbench.class : tbench/tbench.java

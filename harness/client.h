@@ -20,6 +20,7 @@
 #include "msgs.h"
 #include "msgs.h"
 #include "dist.h"
+#include "msgq.h"
 
 #include <pthread.h>
 #include <stdint.h>
@@ -61,6 +62,7 @@ class Client {
         void startRoi();
         void dumpStats();
         void dumpAndClearStats();
+        bool getAndClearStats(lats_t lats);
         void updateQps(int);
 };
 

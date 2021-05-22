@@ -15,6 +15,7 @@
  */
 
 #include "client.h"
+#include "msgq.h"
 #include "helpers.h"
 
 #include <assert.h>
@@ -29,6 +30,8 @@
 #include <vector>
 
 #include <boost/algorithm/string.hpp>
+
+#define RL 1
 
 #ifdef CLOSED_LOOP
 static bool _send(NetworkedClient* client) {
@@ -157,9 +160,32 @@ int sleepInSec;
 void* dump(void* c) {
     NetworkedClient* client = reinterpret_cast<NetworkedClient*>(c);
 
+#ifdef RL
+    int mqid = mq_init();
+    assert(mqid >= 0);
+#endif
+
     while (true) {
+#ifdef RL
+        struct mq_msgbuf recv_buf;
+        struct mq_msgbuf snd_buf;
+        lats_t* lats = &snd_buf.data.lats;
+        snd_buf.type = CMD_PUT_LAT;
+
+        mq_recv(mqid, &recv_buf);
+        if (recv_buf.type == CMD_GET_LAT) {
+            // May in the warmup stage
+            while (client->getAndClearStats(*lats) == false) {
+                sleep(1);
+            }
+            mq_send(mqid, &snd_buf);
+        } else {
+            assert(false);
+        }
+#else
         sleep(sleepInSec);
         client->dumpAndClearStats();
+#endif
     }
 }
 

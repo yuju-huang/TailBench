@@ -4,7 +4,7 @@ LDFLAGS = $(shell pkg-config --libs opencv)
 
 TBENCH_PATH = ../harness
 TBENCH_SERVER_OBJ = $(TBENCH_PATH)/tbench_server_networked.o
-TBENCH_CLIENT_OBJ = $(TBENCH_PATH)/client.o $(TBENCH_PATH)/tbench_client_networked.o
+TBENCH_CLIENT_OBJ = $(TBENCH_PATH)/client.o $(TBENCH_PATH)/tbench_client_networked.o $(TBENCH_PATH)/msgq.o
 TBENCH_INTEGRATED_OBJ = $(TBENCH_PATH)/client.o $(TBENCH_PATH)/tbench_server_integrated.o
 
 CXXFLAGS += -I$(TBENCH_PATH)
