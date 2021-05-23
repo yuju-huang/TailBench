@@ -45,7 +45,7 @@ int mq_recv(int mqid, struct mq_msgbuf* buf) {
     const size_t msg_size = sizeof(struct mq_msgbuf) - sizeof(long);
     assert(buf);
 
-    if (msgrcv(mqid, buf, msg_size, 0, /* all type */0) == -1) {
+    if (msgrcv(mqid, buf, msg_size, CMD_GET_LAT, 0) == -1) {
         perror( "msgrcv() failed");
         exit(1);
     }
@@ -58,8 +58,9 @@ int mq_recv(int mqid, struct mq_msgbuf* buf) {
 int mq_send(int mqid, const struct mq_msgbuf* buf) {
     const size_t msg_size = sizeof(struct mq_msgbuf) - sizeof(long);
     assert(buf);
-    assert(buf->type == CMD_PUT_LAT);
+    assert((buf->type == CMD_PUT_LAT) || (buf->type == CMD_FINISH));
 
+    printf("%s type=%ld\n", __func__, buf->type);
     if (msgsnd(mqid, buf, msg_size, 0) == -1) {
         perror( "msgsnd() failed");
         exit(1);

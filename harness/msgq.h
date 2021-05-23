@@ -4,8 +4,9 @@
 #define NUM_LATS 3
 #define BUFF_SIZE (NUM_LATS * sizeof(uint64_t))
 
-#define CMD_GET_LAT 8
-#define CMD_PUT_LAT 18
+#define CMD_GET_LAT 3
+#define CMD_PUT_LAT 2
+#define CMD_FINISH 1
 
 typedef double lats_t[NUM_LATS]; // p50, p95, p99
 

@@ -20,6 +20,7 @@
 
 #include <assert.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 
@@ -33,15 +34,17 @@
 
 #define RL 1
 
+sem_t finish_sema;
+
 #ifdef CLOSED_LOOP
 static bool _send(NetworkedClient* client) {
     Request* req = client->startReq();
     if (!client->send(req)) {
-        std::cerr << "[CLIENT] send() failed : " << client->errmsg() \
+        std::cout << "[CLIENT] send() failed : " << client->errmsg() \
             << std::endl;
-        std::cerr << "[CLIENT] Not sending further request" << std::endl;
+        std::cout << "[CLIENT] Not sending further request" << std::endl;
         client->dumpStats();
-        syscall(SYS_exit_group, 0);
+        sem_post(&finish_sema);
         return false;
     }
     return true;
@@ -50,10 +53,10 @@ static bool _send(NetworkedClient* client) {
 static bool _recv(NetworkedClient* client) {
     Response resp;
     if (!client->recv(&resp)) {
-        std::cerr << "[CLIENT] recv() failed : " << client->errmsg() \
+        std::cout << "[CLIENT] recv() failed : " << client->errmsg() \
             << std::endl;
         client->dumpStats();
-        syscall(SYS_exit_group, 0);
+        sem_post(&finish_sema);
         return false;
     }
 
@@ -63,9 +66,9 @@ static bool _recv(NetworkedClient* client) {
         client->startRoi();
     } else if (resp.type == FINISH) {
         client->dumpStats();
-        syscall(SYS_exit_group, 0);
+        sem_post(&finish_sema);
     } else {
-        std::cerr << "Unknown response type: " << resp.type << std::endl;
+        std::cout << "Unknown response type: " << resp.type << std::endl;
         return false;
     }
     return true;
@@ -85,11 +88,11 @@ void* send(void* c) {
     while (true) {
         Request* req = client->startReq();
         if (!client->send(req)) {
-            std::cerr << "[CLIENT] send() failed : " << client->errmsg() \
+            std::cout << "[CLIENT] send() failed : " << client->errmsg() \
                 << std::endl;
-            std::cerr << "[CLIENT] Not sending further request" << std::endl;
+            std::cout << "[CLIENT] Not sending further request" << std::endl;
             client->dumpStats();
-            syscall(SYS_exit_group, 0);
+            sem_post(&finish_sema);
             break; // We are done
         }
     }
@@ -102,7 +105,7 @@ void* recv(void* c) {
     Response resp;
     while (true) {
         if (!client->recv(&resp)) {
-            std::cerr << "[CLIENT] recv() failed : " << client->errmsg() \
+            std::cout << "[CLIENT] recv() failed : " << client->errmsg() \
                 << std::endl;
             return nullptr;
         }
@@ -113,9 +116,9 @@ void* recv(void* c) {
             client->startRoi();
         } else if (resp.type == FINISH) {
             client->dumpStats();
-            syscall(SYS_exit_group, 0);
+            sem_post(&finish_sema);
         } else {
-            std::cerr << "Unknown response type: " << resp.type << std::endl;
+            std::cout << "Unknown response type: " << resp.type << std::endl;
             return nullptr;
         }
     }
@@ -130,9 +133,9 @@ void* wrk(void* c) {
     std::string line;
     while (std::getline(fd, line)) {
         if (fd.fail()) {
-            std::cerr << "Reading workload description file error\n";
+            std::cout << "Reading workload description file error\n";
             client->dumpStats();
-            syscall(SYS_exit_group, 0);
+            sem_post(&finish_sema);
             return nullptr;
         }
 
@@ -152,7 +155,7 @@ void* wrk(void* c) {
 
     std::cout << "Finish all workload in description file, exit\n";
     client->dumpStats();
-    syscall(SYS_exit_group, 0);
+    sem_post(&finish_sema);
     return nullptr;
 }
 
@@ -189,6 +192,19 @@ void* dump(void* c) {
     }
 }
 
+static void mq_finish() {
+#ifdef RL
+    int mqid = mq_init();
+    assert(mqid >= 0);
+
+    struct mq_msgbuf snd_buf;
+    snd_buf.type = CMD_FINISH;
+    memset((void*)snd_buf.data.raw, 0, sizeof(snd_buf) - sizeof(snd_buf.type));
+    mq_send(mqid, &snd_buf);
+    printf("%s\n", __func__);
+#endif
+}
+
 int main(int argc, char* argv[]) {
     int nthreads = getOpt<int>("TBENCH_CLIENT_THREADS", 1);
     std::string server = getOpt<std::string>("TBENCH_SERVER", "");
@@ -199,6 +215,7 @@ int main(int argc, char* argv[]) {
     NetworkedClient* client = new NetworkedClient(nthreads, server, serverport);
 
 #ifdef CLOSED_LOOP
+    sem_init(&finish_sema, 0, 0);
     std::vector<pthread_t> clients(nthreads);
     for (int t = 0; t < nthreads; ++t) {
         int status = pthread_create(&clients[t], nullptr, closed_loop,
@@ -218,6 +235,8 @@ int main(int argc, char* argv[]) {
     assert(pthread_create(&dumper, nullptr, dump,
                           reinterpret_cast<void*>(client)) == 0);
 
+    sem_wait(&finish_sema);
+/*
     for (int t = 0; t < nthreads; ++t) {
         int status;
         status = pthread_join(clients[t], nullptr);
@@ -225,6 +244,7 @@ int main(int argc, char* argv[]) {
     }
     assert(pthread_join(dumper, nullptr) == 0);
     assert(pthread_join(wrker, nullptr) == 0);
+*/
 #else
     std::vector<pthread_t> senders(nthreads);
     std::vector<pthread_t> receivers(nthreads);
@@ -250,5 +270,9 @@ int main(int argc, char* argv[]) {
     }
 #endif
 
+#ifdef RL
+    printf("main finish\n");
+    mq_finish();
+#endif
     return 0;
 }
